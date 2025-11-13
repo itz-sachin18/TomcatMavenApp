@@ -34,11 +34,33 @@ pipeline {
                 sh 'ls -l target/TomcatMavenApp-2.0.war' 
             }
         }
+        stage('Deploy via Docker') {
+            steps {
+                echo 'Stopping and removing old container C1...'
+                // 1. Stop and remove any existing container named C1
+                sh 'docker stop C1 || true'
+                sh 'docker rm C1 || true'
+
+                echo 'Starting new Tomcat container C1 on port 8001...'
+                // 2. Run the Tomcat Docker container. 
+                sh """
+                docker run -d \\
+                -p 8001:8080 \\
+                -v ${WORKSPACE}/target/TomcatMavenApp-2.0.war:/usr/local/tomcat/webapps/TomcatMavenApp.war \\
+                --name C1 tomcat:latest
+                """
+            }
+        }
 
         stage('Archive Artifacts') {
             steps {
                 // Archive the resulting WAR file to the Jenkins build record
                 archiveArtifacts artifacts: 'target/TomcatMavenApp-*.war', fingerprint: true
+            }
+            stage('Verification') {
+            steps {
+                sleep 15 // Wait for Tomcat to fully unpack and start the application
+                echo "Deployment complete. Access application at: http://YOUR_IP_ADDRESS:8001/TomcatMavenApp/"
             }
         }
     }
